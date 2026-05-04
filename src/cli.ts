@@ -9,7 +9,7 @@ import {
   type State,
   X_core, Y_core, X_env, Y_env,
   createState, luminosity, surfaceT, totalMass, muCore, remainingLifetime,
-  step, addH, mineH, extractHe, mixStar, record,
+  step, addH, mineH, extractHe, mixStar, record, evolutionaryPhase,
 } from './physics.js';
 
 const STATE_FILE = resolve(import.meta.dir, '..', '.state.json');
@@ -37,7 +37,7 @@ function printStats(s: State): void {
   const M = totalMass(s);
   const L = luminosity(s);
   const T = surfaceT(s);
-  const status = s.alive ? 'BURNING' : 'EXHAUSTED';
+  const status = s.alive ? evolutionaryPhase(s).toUpperCase() : 'EXHAUSTED';
   const rem = s.alive ? `${fmt(remainingLifetime(s), 2)} Gyr` : '0';
 
   console.log(`─── stellar sandbox ─── [${status}]`);

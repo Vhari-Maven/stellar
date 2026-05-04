@@ -18,6 +18,20 @@ export const BURN_CONST = 9.65e-12;
 // Below this hydrogen fraction a shell stops contributing to burning.
 const X_BURN_THRESHOLD = 0.005;
 
+// Schönberg-Chandrasekhar trigger on the squared-depletion f. At ZAMS f=0;
+// for a Sun-like star this reaches ~0.05 near real turnoff (~10 Gyr).
+const F_SC = 0.05;
+
+// Phenomenological post-MS coefficients, tuned against published 1 M☉ tracks
+// to land RGB tip near L≈2000 at T_eff≈3500 K, with a ~1-2 Gyr subgiant +
+// RGB transition. β grows faster than α so the photosphere outpaces the L
+// climb, dropping T_eff into Hayashi. Hard caps prevent numerical blow-up.
+const ALPHA_A = 1.0;  const ALPHA_K = 14;  const ALPHA_MAX = 8.0;
+const BETA_A  = 6.0;  const BETA_K  = 22;  const BETA_MAX  = 130;
+
+// Hayashi limit on convective envelope: real cool giants don't go below this.
+const T_HAYASHI = 3200;
+
 // "Core" = innermost CORE_BOUNDARY of mass, used only for the X_core / Y_core
 // diagnostics that the UI displays. Has no dynamical role.
 export const CORE_BOUNDARY = 0.20;
@@ -117,6 +131,44 @@ function muCentral(s: State): number {
   return shellMu(s.shells[0]);
 }
 
+// Effective helium-core mass fraction. Sums squared depletion over contiguous
+// inner shells, suppressing the mild depletion of outer shells (so we measure
+// "deeply burned-through inner region" rather than "anywhere helium has
+// accumulated"). Squaring also responds non-linearly so the SC trigger fires
+// crisply once central depletion is severe.
+export function inertCoreFraction(s: State): number {
+  const M = totalMass(s);
+  if (M <= 0) return 0;
+  let f = 0;
+  for (const sh of s.shells) {
+    const depl = (X0 - shellX(sh)) / X0;
+    if (depl <= 0) break;
+    f += depl * depl * shellMass(sh);
+  }
+  return f / M;
+}
+
+// Post-MS multipliers. Both kick in only past the SC threshold so the main
+// sequence is unaffected; once triggered, α boosts T_c (core contraction →
+// hotter shell burning, positive feedback) and β expands the photosphere.
+function postMSFactors(s: State): { tcBoost: number; radiusBoost: number } {
+  const dx = Math.max(0, inertCoreFraction(s) - F_SC);
+  if (dx === 0) return { tcBoost: 1, radiusBoost: 1 };
+  return {
+    tcBoost: Math.min(ALPHA_MAX, 1 + ALPHA_A * Math.expm1(ALPHA_K * dx)),
+    radiusBoost: Math.min(BETA_MAX, 1 + BETA_A * Math.expm1(BETA_K * dx)),
+  };
+}
+
+export function evolutionaryPhase(s: State): 'MS' | 'turnoff' | 'subgiant' | 'RGB' | 'exhausted' {
+  if (!s.alive) return 'exhausted';
+  const f = inertCoreFraction(s);
+  if (f < 0.6 * F_SC) return 'MS';
+  if (f < F_SC)       return 'turnoff';
+  if (f < 2 * F_SC)   return 'subgiant';
+  return 'RGB';
+}
+
 // ---- temperature profile and luminosity ----
 
 // Compute T-profile factor (1 − m̃)^β at the *center* of each shell, using the
@@ -135,9 +187,11 @@ function profileFactors(s: State): number[] {
   return out;
 }
 
-// Non-dim central temperature: T_c / T_c(Sol, ZAMS) = (μ_c/μ_c₀) · M^0.3
+// Non-dim central temperature: T_c / T_c(Sol, ZAMS) = α · (μ_c/μ_c₀) · M^0.3.
+// α is the post-MS contraction boost, ≡ 1 on the main sequence.
 function tCentralNorm(s: State): number {
-  return (muCentral(s) / MU0) * Math.pow(totalMass(s), 0.3);
+  const { tcBoost } = postMSFactors(s);
+  return tcBoost * (muCentral(s) / MU0) * Math.pow(totalMass(s), 0.3);
 }
 
 // Calibrate K so L_total = 1 L☉ at the present Sun's age (4.57 Gyr) — that's
@@ -193,10 +247,12 @@ export function luminosity(s: State): number {
 export function surfaceT(s: State): number {
   const M = totalMass(s);
   if (M <= 0) return 0;
-  const R = Math.pow(M, 0.7);
+  const { radiusBoost } = postMSFactors(s);
+  const R = Math.pow(M, 0.7) * radiusBoost;
   const L = luminosity(s);
   if (L <= 0) return 2500;
-  return 5778 * Math.pow(L / (R * R), 0.25);
+  const T = 5778 * Math.pow(L / (R * R), 0.25);
+  return Math.max(T_HAYASHI, T);
 }
 
 // Rough estimate: total H weighted by current burning relevance, divided by
