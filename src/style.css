@@ -188,7 +188,7 @@ header {
   background: var(--amber);
 }
 .legend-dot.core { background: linear-gradient(45deg, #ffeecc, #ff7733); }
-.legend-dot.he { background: #777; }
+.legend-dot.he { background: linear-gradient(45deg, #2c2a26, #56504a); }
 
 .stats {
   display: flex;
@@ -424,6 +424,24 @@ header {
 .status-banner.alive {
   border-color: rgba(102, 221, 153, 0.3);
   color: var(--good);
+}
+
+.status-banner.turnoff {
+  border-color: rgba(255, 214, 153, 0.4);
+  color: var(--amber-soft);
+  background: rgba(255, 170, 51, 0.04);
+}
+
+.status-banner.subgiant {
+  border-color: rgba(255, 170, 51, 0.5);
+  color: var(--amber);
+  background: rgba(255, 170, 51, 0.08);
+}
+
+.status-banner.rgb {
+  border-color: rgba(255, 119, 51, 0.6);
+  color: var(--plasma);
+  background: rgba(255, 119, 51, 0.10);
 }
 
 .status-banner.dead {

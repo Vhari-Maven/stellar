@@ -4,8 +4,16 @@ import {
   type State,
   X_core, Y_core, X_env, Y_env,
   luminosity, surfaceT, totalMass, muCore, remainingLifetime,
-  addH, mineH, extractHe, mixStar, reset, record,
+  addH, mineH, extractHe, mixStar, reset, record, evolutionaryPhase,
 } from './physics.js';
+
+const BANNERS = {
+  MS:        { cls: 'alive',     text: '◊ Hydrostatic equilibrium · Main-sequence hydrogen burning' },
+  turnoff:   { cls: 'turnoff',   text: '◇ Approaching turnoff · Core hydrogen depleting' },
+  subgiant:  { cls: 'subgiant',  text: '◆ Subgiant · Core contracting, envelope expanding' },
+  RGB:       { cls: 'rgb',       text: '★ Red giant branch · Shell burning around inert He core' },
+  exhausted: { cls: 'dead',      text: '✕ Hydrogen exhausted · Main sequence terminated' },
+};
 
 const FLASH_IDS = ['stat-mass', 'stat-l', 'stat-x', 'stat-y', 'stat-mu', 'stat-env'];
 
@@ -61,13 +69,9 @@ export function updateStats(s: State): void {
 
   const banner = document.getElementById('status-banner');
   if (banner) {
-    if (s.alive) {
-      banner.className = 'status-banner alive';
-      banner.textContent = '◊ Hydrostatic equilibrium maintained · Burning hydrogen';
-    } else {
-      banner.className = 'status-banner dead';
-      banner.textContent = '✕ Core hydrogen exhausted · Main sequence terminated';
-    }
+    const b = BANNERS[evolutionaryPhase(s)];
+    banner.className = `status-banner ${b.cls}`;
+    banner.textContent = b.text;
   }
 }
 

@@ -244,11 +244,16 @@ export function luminosity(s: State): number {
   return L;
 }
 
-export function surfaceT(s: State): number {
+export function radius(s: State): number {
   const M = totalMass(s);
   if (M <= 0) return 0;
   const { radiusBoost } = postMSFactors(s);
-  const R = Math.pow(M, 0.7) * radiusBoost;
+  return Math.pow(M, 0.7) * radiusBoost;
+}
+
+export function surfaceT(s: State): number {
+  const R = radius(s);
+  if (R <= 0) return 0;
   const L = luminosity(s);
   if (L <= 0) return 2500;
   const T = 5778 * Math.pow(L / (R * R), 0.25);

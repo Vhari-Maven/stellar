@@ -4,9 +4,10 @@ import {
   type State,
   X0,
   X_core,
+  inertCoreFraction,
   luminosity,
+  radius,
   surfaceT,
-  totalMass,
 } from './physics.js';
 
 type RGB = [number, number, number];
@@ -44,15 +45,21 @@ function $(id: string): HTMLElement {
 }
 
 export function updateStarSVG(s: State): void {
-  const M = totalMass(s);
+  const R = radius(s);
   const L = luminosity(s);
   const T = surfaceT(s);
   const X = X_core(s);
 
-  const visR = 60 * Math.pow(Math.max(M, 0.05), 0.6);
-  const Rdisplay = Math.min(80, Math.max(15, visR));
+  // Compress R visually: real RGB stars are ~100× the Sun's radius, way more
+  // than the SVG box. R^0.3 keeps ZAMS visible at modest size and lets the
+  // RGB tip fill the panel without clamping the giant phase to a single value.
+  const visR = 25 * Math.pow(Math.max(R, 0.05), 0.3);
+  const Rdisplay = Math.min(85, Math.max(10, visR));
   const haloR = Rdisplay * (1.3 + 0.15 * Math.log10(L + 0.1));
-  const coreR = Rdisplay * 0.38;
+  // Core contracts as the envelope expands — by RGB tip the He core is a
+  // tiny fraction of the photospheric radius. Inverse sqrt(R) captures this
+  // qualitatively without needing a separate core-radius physics calc.
+  const coreR = Rdisplay * 0.38 / Math.sqrt(Math.max(R, 1));
 
   const tc = tempToColor(T);
   const surfaceCenter = `rgb(${Math.min(255, tc[0] + 25)},${Math.min(255, tc[1] + 25)},${Math.min(255, tc[2] + 25)})`;
@@ -81,9 +88,15 @@ export function updateStarSVG(s: State): void {
   coreStops[0].setAttribute('stop-color', coreInner);
   coreStops[1].setAttribute('stop-color', coreOuter);
 
+  // Inert helium ash sits at the very centre of the burning core. Sized by
+  // depletion so it grows from invisible at ZAMS to filling the burning core
+  // at the RGB tip, with the bright burning region squeezed into a thin shell.
+  const heAshR = coreR * Math.min(1, inertCoreFraction(s) * 8);
+
   $('halo').setAttribute('r', String(haloR));
   $('surface').setAttribute('r', String(Rdisplay));
   $('core').setAttribute('r', String(coreR));
+  $('he-ash').setAttribute('r', String(heAshR));
 }
 
 // ---- plot ----
