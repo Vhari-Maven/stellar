@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stellar Sandbox · Solar Evolution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,700;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060912;
+    --bg-panel: #0c1224;
+    --bg-deeper: #050810;
+    --ink: #e8d6b0;
+    --ink-bright: #fff5dd;
+    --ink-dim: #6e6549;
+    --amber: #ffaa33;
+    --amber-soft: #ffd699;
+    --plasma: #ff7733;
+    --hot: #ffaa66;
+    --cool-blue: #88aaff;
+    --line: rgba(232, 214, 176, 0.12);
+    --line-bright: rgba(232, 214, 176, 0.25);
+    --danger: #ff5566;
+    --good: #66dd99;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  body {
+    padding: 32px 24px 64px;
+    background-image:
+      radial-gradient(ellipse at 15% 20%, rgba(255,170,51,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 85% 80%, rgba(136,170,255,0.04) 0%, transparent 60%);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(0.6px 0.6px at 22% 33%, rgba(255,255,255,0.7), transparent),
+      radial-gradient(0.6px 0.6px at 64% 71%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(0.9px 0.9px at 81% 12%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(0.5px 0.5px at 33% 62%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(0.5px 0.5px at 51% 88%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(0.9px 0.9px at 89% 41%, rgba(255,255,255,0.7), transparent),
+      radial-gradient(0.5px 0.5px at 11% 79%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(0.5px 0.5px at 73% 27%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(0.5px 0.5px at 41% 7%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(0.7px 0.7px at 6% 49%, rgba(255,255,255,0.6), transparent);
+    background-size: 800px 800px, 700px 700px, 900px 900px, 600px 600px, 850px 850px, 750px 750px, 950px 950px, 800px 800px, 700px 700px, 850px 850px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.7;
+  }
+
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 38px;
+    letter-spacing: -0.025em;
+    color: var(--ink-bright);
+    line-height: 1;
+  }
+
+  .title em {
+    color: var(--amber);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .subtitle {
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    margin-top: 8px;
+  }
+
+  .header-meta {
+    text-align: right;
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  .header-meta .badge {
+    color: var(--amber);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-top: 4px;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 880px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .title { font-size: 28px; }
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    padding: 28px 24px 24px;
+    position: relative;
+  }
+
+  .panel-tag {
+    position: absolute;
+    top: 0;
+    left: 24px;
+    background: var(--bg);
+    transform: translateY(-50%);
+    padding: 0 12px;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+
+  .panel-tag .num {
+    color: var(--amber);
+    margin-right: 8px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  .star-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .star-display {
+    aspect-ratio: 1;
+    margin: 0 auto 16px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .star-display svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .legend {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber);
+  }
+  .legend-dot.core { background: linear-gradient(45deg, #ffeecc, #ff7733); }
+  .legend-dot.he { background: #777; }
+
+  .stats {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-section {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .stat-section:first-of-type { padding-top: 4px; }
+  .stat-section:last-child { border-bottom: 0; padding-bottom: 0; }
+
+  .stat-section-title {
+    font-size: 11px;
+    color: var(--amber);
+    margin-bottom: 10px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--ink-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .stat-value {
+    font-size: 14px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .stat-value.flash {
+    animation: flash 0.6s ease-out;
+  }
+
+  @keyframes flash {
+    0% { color: var(--amber); }
+    100% { color: var(--ink); }
+  }
+
+  .stat-value .unit {
+    color: var(--ink-dim);
+    font-size: 10px;
+    margin-left: 4px;
+  }
+
+  .comp-bar {
+    margin-top: 8px;
+    height: 6px;
+    background: var(--bg-deeper);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    border: 1px solid rgba(232, 214, 176, 0.06);
+  }
+
+  .comp-h { background: linear-gradient(to right, #ff8833, #ffcc66); transition: flex 0.3s; }
+  .comp-he { background: linear-gradient(to right, #666, #999); transition: flex 0.3s; }
+  .comp-z { background: #333; transition: flex 0.3s; }
+
+  .comp-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--ink-dim);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .time-control {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .time-button {
+    font-family: inherit;
+    background: transparent;
+    border: 1px solid var(--ink-dim);
+    color: var(--ink);
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+  }
+
+  .time-button:hover {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .time-button.active {
+    border-color: var(--amber);
+    color: var(--amber);
+    background: rgba(255, 170, 51, 0.08);
+  }
+
+  .speed-buttons { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .play-pause {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    padding: 8px 22px;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    background: transparent;
+    cursor: pointer;
+    text-transform: lowercase;
+    letter-spacing: 0;
+    transition: all 0.15s;
+    min-width: 90px;
+  }
+
+  .play-pause:hover {
+    background: rgba(255, 170, 51, 0.1);
+  }
+
+  .speed-label {
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+
+  .interventions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .intervention {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    padding: 16px 20px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    color: var(--ink);
+    font-family: inherit;
+  }
+
+  .intervention:hover {
+    border-color: var(--amber);
+    background: rgba(255, 170, 51, 0.04);
+  }
+
+  .intervention-name {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--amber);
+    margin-bottom: 4px;
+  }
+
+  .intervention-desc {
+    font-size: 10px;
+    color: var(--ink-dim);
+    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .intervention.reset .intervention-name { color: var(--ink-dim); }
+  .intervention.reset:hover { border-color: var(--ink-bright); }
+  .intervention.reset:hover .intervention-name { color: var(--ink-bright); }
+
+  .plot-panel { margin-bottom: 24px; }
+
+  .plot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .plot-title {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink-bright);
+    font-weight: 500;
+  }
+
+  .plot-axes-info {
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  #plot {
+    width: 100%;
+    height: 240px;
+    display: block;
+  }
+
+  .status-banner {
+    padding: 11px 20px;
+    border: 1px solid var(--line);
+    margin-bottom: 22px;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .status-banner.alive {
+    border-color: rgba(102, 221, 153, 0.3);
+    color: var(--good);
+  }
+
+  .status-banner.dead {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(255, 85, 102, 0.05);
+  }
+
+  .physics-note {
+    font-size: 11px;
+    color: var(--ink-dim);
+    line-height: 1.7;
+    padding: 18px 22px;
+    border: 1px dashed var(--line);
+    margin-top: 24px;
+    background: rgba(12, 18, 36, 0.4);
+  }
+
+  .physics-note strong {
+    color: var(--ink);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .physics-note code {
+    background: var(--bg);
+    padding: 2px 6px;
+    color: var(--amber-soft);
+    font-size: 11px;
+    border: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="title">Stellar <em>Sandbox</em></div>
+        <div class="subtitle">A toy model of solar evolution · Main sequence physics</div>
+      </div>
+      <div class="header-meta">
+        Initial conditions
+        <div class="badge">Sol · ZAMS</div>
+      </div>
+    </header>
+
+    <div class="status-banner alive" id="status-banner">
+      ◊ Hydrostatic equilibrium maintained · Burning hydrogen
+    </div>
+
+    <div class="main-grid">
+      <div class="panel star-panel">
+        <div class="panel-tag"><span class="num">I</span>Cross section</div>
+        <div class="star-display">
+          <svg id="star-svg" viewBox="-100 -100 200 200">
+            <defs>
+              <radialGradient id="surfaceGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffeebb" />
+                <stop offset="60%" stop-color="#ffcc66" />
+                <stop offset="100%" stop-color="#ff8833" />
+              </radialGradient>
+              <radialGradient id="haloGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffaa66" stop-opacity="0.6"/>
+                <stop offset="40%" stop-color="#ffaa66" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#ffaa66" stop-opacity="0"/>
+              </radialGradient>
+              <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ffeecc" />
+                <stop offset="80%" stop-color="#ff7733" />
+                <stop offset="100%" stop-color="#cc5511" />
+              </radialGradient>
+            </defs>
+            <circle id="halo" cx="0" cy="0" r="90" fill="url(#haloGrad)" />
+            <circle id="surface" cx="0" cy="0" r="60" fill="url(#surfaceGrad)" />
+            <circle id="core" cx="0" cy="0" r="22" fill="url(#coreGrad)" />
+          </svg>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot core"></span> Burning core</div>
+          <div class="legend-item"><span class="legend-dot"></span> Envelope</div>
+          <div class="legend-item"><span class="legend-dot he"></span> Helium ash</div>
+        </div>
+      </div>
+
+      <div class="panel stats">
+        <div class="panel-tag"><span class="num">II</span>State variables</div>
+
+        <div class="stat-section">
+          <div class="stat-section-title">Bulk properties</div>
+          <div class="stat-row">
+            <span class="stat-label">Total mass</span>
+            <span class="stat-value" id="stat-mass">1.000 <span class="unit">M☉</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Luminosity</span>
+            <span class="stat-value" id="stat-l">1.000 <span class="unit">L☉</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Surface T<sub>eff</sub></span>
+            <span class="stat-value" id="stat-tsurf">5778 <span class="unit">K</span></span>
+          </div>
+        </div>
+
+        <div class="stat-section">
+          <div class="stat-section-title">Core composition</div>
+          <div class="stat-row">
+            <span class="stat-label">X (hydrogen)</span>
+            <span class="stat-value" id="stat-x">0.710</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Y (helium)</span>
+            <span class="stat-value" id="stat-y">0.270</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">μ (mean mol. wt)</span>
+            <span class="stat-value" id="stat-mu">0.613</span>
+          </div>
+          <div class="comp-bar" id="comp-bar-core"></div>
+          <div class="comp-labels"><span>Hydrogen ←</span><span>→ Helium</span></div>
+        </div>
+
+        <div class="stat-section">
+          <div class="stat-section-title">Envelope composition</div>
+          <div class="stat-row">
+            <span class="stat-label">X / Y</span>
+            <span class="stat-value" id="stat-env">0.710 / 0.270</span>
+          </div>
+          <div class="comp-bar" id="comp-bar-env"></div>
+          <div class="comp-labels"><span>Hydrogen ←</span><span>→ Helium</span></div>
+        </div>
+
+        <div class="stat-section">
+          <div class="stat-section-title">Time</div>
+          <div class="stat-row">
+            <span class="stat-label">Age since ZAMS</span>
+            <span class="stat-value" id="stat-age">0.000 <span class="unit">Gyr</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Est. lifetime remaining</span>
+            <span class="stat-value" id="stat-remaining">~10.00 <span class="unit">Gyr</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="time-control">
+      <button class="play-pause" id="btn-pause">pause</button>
+      <span class="speed-label">Time rate</span>
+      <div class="speed-buttons" id="speed-buttons">
+        <button class="time-button" data-speed="1e6">1 Myr/s</button>
+        <button class="time-button active" data-speed="1e7">10 Myr/s</button>
+        <button class="time-button" data-speed="1e8">100 Myr/s</button>
+        <button class="time-button" data-speed="1e9">1 Gyr/s</button>
+      </div>
+    </div>
+
+    <div class="interventions">
+      <button class="intervention" onclick="addH(0.05)">
+        <div class="intervention-name">Add hydrogen</div>
+        <div class="intervention-desc">+0.05 M☉ pure H to surface</div>
+      </button>
+      <button class="intervention" onclick="mineH(0.05)">
+        <div class="intervention-name">Mine hydrogen</div>
+        <div class="intervention-desc">−0.05 M☉ from surface</div>
+      </button>
+      <button class="intervention" onclick="extractHe()">
+        <div class="intervention-name">Extract helium ash</div>
+        <div class="intervention-desc">Remove all He from core, refill with envelope material</div>
+      </button>
+      <button class="intervention" onclick="mixStar()">
+        <div class="intervention-name">Mix star fully</div>
+        <div class="intervention-desc">Homogenize composition (full convection)</div>
+      </button>
+      <button class="intervention reset" onclick="resetState()">
+        <div class="intervention-name">Reset to ZAMS</div>
+        <div class="intervention-desc">Return to zero-age main sequence</div>
+      </button>
+    </div>
+
+    <div class="panel plot-panel">
+      <div class="panel-tag"><span class="num">III</span>Time series</div>
+      <div class="plot-header">
+        <div class="plot-title">Luminosity history</div>
+        <div class="plot-axes-info">L / L☉ &nbsp; vs &nbsp; Age (Gyr)</div>
+      </div>
+      <canvas id="plot"></canvas>
+    </div>
+
+    <div class="physics-note">
+      <strong>Physics in this model.</strong> The core occupies the inner 20% of the star by mass. Hydrogen burns there at rate <code>dM_H/dt = −L / (0.007 c²)</code>, the actual mass-energy yield of the pp-chain. Luminosity follows a homology relation <code>L ∝ M^3.5 · (μ/μ₀)⁴</code>, where <code>μ = 1/(2X + ¾Y + ½Z)</code> is the mean molecular weight of fully ionized gas. As helium accumulates, μ rises; the core has fewer particles per unit mass, so to maintain hydrostatic pressure the temperature climbs and L grows. The star ends the main sequence when X<sub>core</sub> falls below 0.05. Surface T<sub>eff</sub> is back-calculated from L and a rough mass-radius relation R ∝ M^0.7. Things this toy ignores: convection zones, Kramers/electron-scattering opacity, gravitational settling, the CNO cycle (matters above ~1.3 M☉), shell burning, and the gradual outward march of the burning region — which is why a realistic 10 Gyr lifetime requires a slightly inflated 20% core fraction here. The qualitative response to your interventions is what comes through cleanly.
+    </div>
+  </div>
+
+  <script>
+    // ===== STATE =====
+
+    const CORE_FRAC = 0.20;
+    const X0 = 0.71, Y0 = 0.27, Z0 = 0.02;
+    const MU0 = 1 / (2*X0 + 0.75*Y0 + 0.5*Z0);
+    const BURN_CONST = 9.65e-12; // M☉ of H burned per year per L☉ (physical pp-chain)
+
+    const INITIAL = {
+      M_H_core:  X0 * CORE_FRAC,
+      M_He_core: Y0 * CORE_FRAC,
+      M_Z_core:  Z0 * CORE_FRAC,
+      M_H_env:   X0 * (1 - CORE_FRAC),
+      M_He_env:  Y0 * (1 - CORE_FRAC),
+      M_Z_env:   Z0 * (1 - CORE_FRAC),
+    };
+
+    const state = {
+      ...JSON.parse(JSON.stringify(INITIAL)),
+      age: 0,
+      paused: false,
+      yearsPerSecond: 1e7,
+      alive: true,
+      history: [],
+      lastRecord: 0,
+    };
+
+    // ===== DERIVED QUANTITIES =====
+
+    const coreMass = () => state.M_H_core + state.M_He_core + state.M_Z_core;
+    const envMass  = () => state.M_H_env  + state.M_He_env  + state.M_Z_env;
+    const totalMass = () => coreMass() + envMass();
+
+    const X_core = () => { const m = coreMass(); return m > 0 ? state.M_H_core / m : 0; };
+    const Y_core = () => { const m = coreMass(); return m > 0 ? state.M_He_core / m : 0; };
+    const Z_core = () => { const m = coreMass(); return m > 0 ? state.M_Z_core / m : 0; };
+    const X_env  = () => { const m = envMass();  return m > 0 ? state.M_H_env  / m : 0; };
+    const Y_env  = () => { const m = envMass();  return m > 0 ? state.M_He_env / m : 0; };
+
+    function muCore() {
+      const X = X_core(), Y = Y_core(), Z = Z_core();
+      const denom = 2*X + 0.75*Y + 0.5*Z;
+      return denom > 0 ? 1/denom : MU0;
+    }
+
+    function luminosity() {
+      const M = totalMass();
+      if (M <= 0 || !state.alive) return 0;
+      const muRatio = muCore() / MU0;
+      return Math.pow(M, 3.5) * Math.pow(muRatio, 4);
+    }
+
+    function surfaceT() {
+      const M = totalMass();
+      if (M <= 0) return 0;
+      const R = Math.pow(M, 0.7);
+      const L = luminosity();
+      if (L <= 0) return 2500;
+      return 5778 * Math.pow(L / (R*R), 0.25);
+    }
+
+    function remainingLifetime() {
+      // Naive estimate at current L (which itself will rise as μ climbs)
+      if (!state.alive) return 0;
+      const L = luminosity();
+      if (L <= 0) return Infinity;
+      const fuel = Math.max(0, state.M_H_core - 0.05 * coreMass());
+      return fuel / (BURN_CONST * L) / 1e9; // Gyr
+    }
+
+    // ===== EVOLUTION =====
+
+    function step(dtYears) {
+      if (!state.alive) return;
+      const L = luminosity();
+      if (L <= 0) { state.alive = false; return; }
+      let burn = BURN_CONST * L * dtYears; // M☉ of H
+
+      const minH = 0.05 * coreMass();
+      if (state.M_H_core - burn < minH) {
+        burn = Math.max(0, state.M_H_core - minH);
+        state.alive = false;
+      }
+
+      state.M_H_core -= burn;
+      state.M_He_core += burn;
+      state.age += dtYears;
+    }
+
+    // ===== INTERVENTIONS =====
+
+    function addH(deltaM) {
+      state.M_H_env += deltaM;
+      flashStats();
+      record();
+    }
+
+    function mineH(deltaM) {
+      const remove = Math.min(deltaM, state.M_H_env);
+      state.M_H_env -= remove;
+      const leftover = deltaM - remove;
+      if (leftover > 0) {
+        const heRemove = Math.min(leftover, state.M_He_env);
+        state.M_He_env -= heRemove;
+      }
+      flashStats();
+      record();
+    }
+
+    function extractHe() {
+      // He leaves the system; core composition is then refilled from envelope
+      // up to CORE_FRAC of the new total mass.
+      state.M_He_core = 0;
+      const newTotal = totalMass();
+      const targetCoreMass = CORE_FRAC * newTotal;
+      const currentCoreMass = coreMass();
+      const deficit = targetCoreMass - currentCoreMass;
+      const eMass = envMass();
+      if (deficit > 0 && eMass > 0) {
+        const transfer = Math.min(deficit, eMass);
+        const fH = X_env(), fHe = Y_env();
+        const fZ = Math.max(0, 1 - fH - fHe);
+        state.M_H_core  += fH * transfer;
+        state.M_He_core += fHe * transfer;
+        state.M_Z_core  += fZ * transfer;
+        state.M_H_env   -= fH * transfer;
+        state.M_He_env  -= fHe * transfer;
+        state.M_Z_env   -= fZ * transfer;
+      }
+      // If there's burnable H now, the star can resume
+      if (state.M_H_core > 0.05 * coreMass()) state.alive = true;
+      flashStats();
+      record();
+    }
+
+    function mixStar() {
+      const totH  = state.M_H_core  + state.M_H_env;
+      const totHe = state.M_He_core + state.M_He_env;
+      const totZ  = state.M_Z_core  + state.M_Z_env;
+      const totM = totH + totHe + totZ;
+      if (totM <= 0) return;
+      const X = totH/totM, Y = totHe/totM, Z = totZ/totM;
+      const Mc = totM * CORE_FRAC, Me = totM * (1 - CORE_FRAC);
+      state.M_H_core  = X * Mc;
+      state.M_He_core = Y * Mc;
+      state.M_Z_core  = Z * Mc;
+      state.M_H_env   = X * Me;
+      state.M_He_env  = Y * Me;
+      state.M_Z_env   = Z * Me;
+      if (X > 0.05) state.alive = true;
+      flashStats();
+      record();
+    }
+
+    function resetState() {
+      Object.assign(state, JSON.parse(JSON.stringify(INITIAL)));
+      state.age = 0;
+      state.alive = true;
+      state.history = [];
+      state.lastRecord = 0;
+      record();
+      flashStats();
+    }
+
+    function record() {
+      state.history.push({
+        age: state.age,
+        L: luminosity(),
+        M: totalMass(),
+        X: X_core(),
+      });
+      if (state.history.length > 1200) state.history.shift();
+    }
+
+    // Visual ping when something changes via intervention
+    function flashStats() {
+      ['stat-mass','stat-l','stat-x','stat-y','stat-mu','stat-env'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('flash');
+        void el.offsetWidth; // restart
+        el.classList.add('flash');
+      });
+    }
+
+    // ===== RENDERING =====
+
+    function tempToColor(T) {
+      const stops = [
+        {t: 2500,  c: [255, 80, 40]},
+        {t: 3500,  c: [255, 130, 60]},
+        {t: 5000,  c: [255, 200, 110]},
+        {t: 6000,  c: [255, 240, 180]},
+        {t: 7500,  c: [255, 250, 230]},
+        {t: 10000, c: [220, 230, 255]},
+        {t: 20000, c: [180, 200, 255]},
+        {t: 40000, c: [150, 180, 255]},
+      ];
+      if (T <= stops[0].t) return stops[0].c;
+      if (T >= stops[stops.length-1].t) return stops[stops.length-1].c;
+      for (let i = 1; i < stops.length; i++) {
+        if (T < stops[i].t) {
+          const f = (T - stops[i-1].t) / (stops[i].t - stops[i-1].t);
+          return [0,1,2].map(j => Math.round(stops[i-1].c[j] + f*(stops[i].c[j] - stops[i-1].c[j])));
+        }
+      }
+      return stops[stops.length-1].c;
+    }
+
+    const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+    function updateStarSVG() {
+      const M = totalMass();
+      const L = luminosity();
+      const T = surfaceT();
+      const X = X_core();
+
+      // Visual radius: stars don't actually grow much on MS, but allow some scaling
+      const visR = 60 * Math.pow(Math.max(M, 0.05), 0.6);
+      const Rdisplay = Math.min(80, Math.max(15, visR));
+      const haloR = Rdisplay * (1.3 + 0.15 * Math.log10(L + 0.1));
+      const coreR = Rdisplay * 0.38;
+
+      // Surface color from T
+      const tc = tempToColor(T);
+      const surfaceCenter = `rgb(${Math.min(255, tc[0]+25)},${Math.min(255, tc[1]+25)},${Math.min(255, tc[2]+25)})`;
+      const surfaceEdge = rgb(tc);
+      const surfaceDeep = `rgb(${Math.max(0, tc[0]-60)},${Math.max(0, tc[1]-90)},${Math.max(0, tc[2]-110)})`;
+
+      // Core color: H-rich = bright orange, He-rich = darker/grey
+      const Xfrac = Math.max(0, Math.min(1, X / X0));
+      const coreInner = state.alive
+        ? `rgb(255,${Math.round(220 + 30*Xfrac)},${Math.round(180*Xfrac + 50*(1-Xfrac))})`
+        : `rgb(180,160,140)`;
+      const coreOuter = state.alive
+        ? `rgb(${Math.round(180 + 75*Xfrac)},${Math.round(80 + 50*Xfrac)},${Math.round(20 + 30*Xfrac)})`
+        : `rgb(120,100,80)`;
+
+      const surfStops = document.querySelectorAll('#surfaceGrad stop');
+      surfStops[0].setAttribute('stop-color', surfaceCenter);
+      surfStops[1].setAttribute('stop-color', surfaceEdge);
+      surfStops[2].setAttribute('stop-color', surfaceDeep);
+
+      const haloStops = document.querySelectorAll('#haloGrad stop');
+      haloStops[0].setAttribute('stop-color', surfaceEdge);
+      haloStops[0].setAttribute('stop-opacity', Math.min(0.85, 0.3 + 0.25 * Math.log10(L+0.1) + 0.1));
+      haloStops[1].setAttribute('stop-color', surfaceEdge);
+
+      const coreStops = document.querySelectorAll('#coreGrad stop');
+      coreStops[0].setAttribute('stop-color', coreInner);
+      coreStops[1].setAttribute('stop-color', coreOuter);
+
+      document.getElementById('halo').setAttribute('r', haloR);
+      document.getElementById('surface').setAttribute('r', Rdisplay);
+      document.getElementById('core').setAttribute('r', coreR);
+    }
+
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = text;
+    }
+
+    function updateStats() {
+      const M = totalMass();
+      const L = luminosity();
+      const T = surfaceT();
+      const X = X_core(), Y = Y_core();
+      const mu = muCore();
+
+      setText('stat-mass', `${M.toFixed(3)} <span class="unit">M☉</span>`);
+      setText('stat-l',    `${L.toFixed(3)} <span class="unit">L☉</span>`);
+      setText('stat-tsurf',`${Math.round(T)} <span class="unit">K</span>`);
+      setText('stat-x', X.toFixed(3));
+      setText('stat-y', Y.toFixed(3));
+      setText('stat-mu', mu.toFixed(3));
+      setText('stat-env', `${X_env().toFixed(3)} / ${Y_env().toFixed(3)}`);
+      setText('stat-age', `${(state.age/1e9).toFixed(3)} <span class="unit">Gyr</span>`);
+
+      const remaining = remainingLifetime();
+      const remStr = state.alive
+        ? (isFinite(remaining) ? `~${remaining.toFixed(2)}` : '∞')
+        : '0.00';
+      setText('stat-remaining', `${remStr} <span class="unit">Gyr</span>`);
+
+      const Zc = Math.max(0, 1 - X - Y);
+      const Ze = Math.max(0, 1 - X_env() - Y_env());
+      document.getElementById('comp-bar-core').innerHTML = `
+        <div class="comp-h" style="flex:${X}"></div>
+        <div class="comp-he" style="flex:${Y}"></div>
+        <div class="comp-z" style="flex:${Zc}"></div>`;
+      document.getElementById('comp-bar-env').innerHTML = `
+        <div class="comp-h" style="flex:${X_env()}"></div>
+        <div class="comp-he" style="flex:${Y_env()}"></div>
+        <div class="comp-z" style="flex:${Ze}"></div>`;
+
+      const banner = document.getElementById('status-banner');
+      if (state.alive) {
+        banner.className = 'status-banner alive';
+        banner.textContent = '◊ Hydrostatic equilibrium maintained · Burning hydrogen';
+      } else {
+        banner.className = 'status-banner dead';
+        banner.textContent = '✕ Core hydrogen exhausted · Main sequence terminated';
+      }
+    }
+
+    // ===== PLOT =====
+
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    }
+
+    function drawPlot() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width, h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 50, padR = 16, padT = 12, padB = 28;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const hist = state.history;
+      if (hist.length < 2) {
+        // Just draw axes box
+        ctx.strokeStyle = 'rgba(232, 214, 176, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(padL, padT, plotW, plotH);
+        ctx.fillStyle = 'rgba(232, 214, 176, 0.4)';
+        ctx.font = '11px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('— accumulating data —', padL + plotW/2, padT + plotH/2);
+        return;
+      }
+
+      const ageMaxGyr = hist[hist.length-1].age / 1e9;
+      const xMax = Math.max(0.5, ageMaxGyr * 1.05);
+      let Lmax = 0.5, Lmin = 1e9;
+      for (const p of hist) { if (p.L > Lmax) Lmax = p.L; if (p.L < Lmin) Lmin = p.L; }
+      const yMin = Math.max(0, Math.min(0.5, Lmin * 0.85));
+      const yMax = Math.max(2, Lmax * 1.1);
+
+      // grid
+      ctx.strokeStyle = 'rgba(232, 214, 176, 0.07)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padT + (i/4) * plotH;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        const x = padL + (i/4) * plotW;
+        ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, h - padB); ctx.stroke();
+      }
+
+      // axes box
+      ctx.strokeStyle = 'rgba(232, 214, 176, 0.2)';
+      ctx.strokeRect(padL, padT, plotW, plotH);
+
+      // tick labels
+      ctx.fillStyle = 'rgba(232, 214, 176, 0.55)';
+      ctx.font = '10px JetBrains Mono';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const y = padT + (i/4) * plotH;
+        const v = yMax - (i/4) * (yMax - yMin);
+        ctx.fillText(v.toFixed(v < 10 ? 2 : 1), padL - 6, y + 3);
+      }
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i++) {
+        const x = padL + (i/4) * plotW;
+        const v = (i/4) * xMax;
+        ctx.fillText(v.toFixed(v < 1 ? 2 : 1), x, h - padB + 14);
+      }
+
+      // L line
+      ctx.strokeStyle = '#ffaa33';
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      hist.forEach((p, i) => {
+        const x = padL + (p.age/1e9 / xMax) * plotW;
+        const y = padT + (1 - (p.L - yMin)/(yMax - yMin)) * plotH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // L=1 reference
+      const yRef = padT + (1 - (1 - yMin)/(yMax - yMin)) * plotH;
+      if (yRef > padT && yRef < h - padB) {
+        ctx.strokeStyle = 'rgba(136, 170, 255, 0.25)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(padL, yRef); ctx.lineTo(w - padR, yRef); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(136, 170, 255, 0.6)';
+        ctx.textAlign = 'left';
+        ctx.fillText('L☉', padL + 4, yRef - 4);
+      }
+
+      // current point
+      const last = hist[hist.length - 1];
+      const cx = padL + (last.age/1e9 / xMax) * plotW;
+      const cy = padT + (1 - (last.L - yMin)/(yMax - yMin)) * plotH;
+      ctx.fillStyle = '#ffaa33';
+      ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 245, 221, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 2*Math.PI); ctx.stroke();
+    }
+
+    // ===== LOOP =====
+
+    let lastTime = performance.now();
+
+    function loop(now) {
+      const dt = Math.min(0.1, (now - lastTime) / 1000); // cap real dt at 100ms
+      lastTime = now;
+
+      if (!state.paused && state.alive) {
+        const dtYears = dt * state.yearsPerSecond;
+        // Sub-step for numerical stability when burning fast
+        const targetSubdt = 5e6; // years per sub-step
+        const steps = Math.max(1, Math.ceil(dtYears / targetSubdt));
+        const subdt = dtYears / steps;
+        for (let i = 0; i < steps; i++) step(subdt);
+
+        if (state.age - state.lastRecord > 2e7) {
+          record();
+          state.lastRecord = state.age;
+        }
+      }
+
+      updateStats();
+      updateStarSVG();
+      drawPlot();
+
+      requestAnimationFrame(loop);
+    }
+
+    // ===== EVENTS =====
+
+    document.getElementById('btn-pause').addEventListener('click', e => {
+      state.paused = !state.paused;
+      e.target.textContent = state.paused ? 'play' : 'pause';
+    });
+
+    document.querySelectorAll('#speed-buttons button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#speed-buttons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.yearsPerSecond = parseFloat(btn.dataset.speed);
+      });
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Init
+    record();
+    resizeCanvas();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
