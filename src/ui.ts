@@ -4,6 +4,8 @@ import {
   type State,
   X_core, Y_core, X_env, Y_env,
   luminosity, surfaceT, totalMass, muCore, remainingLifetime,
+  earthDistance, earthYear, earthTemp, earthEngulfed, earthClimate,
+  hzInner, hzOuter, inHabitableZone,
   addH, mineH, extractHe, mixStar, reset, record, evolutionaryPhase,
 } from './physics.js';
 
@@ -47,6 +49,30 @@ export function updateStats(s: State): void {
   setText('stat-mu', mu.toFixed(3));
   setText('stat-env', `${X_env(s).toFixed(3)} / ${Y_env(s).toFixed(3)}`);
   setText('stat-age', `${(s.age / 1e9).toFixed(3)} <span class="unit">Gyr</span>`);
+
+  const a = earthDistance(s);
+  const yr = earthYear(s);
+  const Te = earthTemp(s);
+  const engulfed = earthEngulfed(s);
+  const climate = earthClimate(s);
+  setText('stat-earth-a', `${a.toFixed(3)} <span class="unit">AU</span>`);
+  setText('stat-earth-yr', `${yr.toFixed(3)} <span class="unit">yr</span>`);
+  if (engulfed) {
+    setText('stat-earth-t', `engulfed <span class="unit">—</span>`);
+  } else {
+    setText('stat-earth-t', `${Math.round(Te)} <span class="unit">K</span>`);
+  }
+  const tagEl = document.getElementById('stat-earth-climate');
+  if (tagEl) {
+    tagEl.className = `climate-tag ${climate}`;
+    tagEl.textContent = climate;
+  }
+
+  const aIn = hzInner(s);
+  const aOut = hzOuter(s);
+  const inHZ = inHabitableZone(s);
+  const hzMark = inHZ ? '<span style="color:var(--good)"> ●</span>' : '<span style="color:var(--ink-dim)"> ○</span>';
+  setText('stat-hz', `${aIn.toFixed(2)} – ${isFinite(aOut) ? aOut.toFixed(2) : '∞'} <span class="unit">AU</span>${hzMark}`);
 
   const remaining = remainingLifetime(s);
   const remStr = s.alive

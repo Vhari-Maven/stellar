@@ -9,7 +9,9 @@ import {
   type State,
   X_core, Y_core, X_env, Y_env,
   createState, luminosity, surfaceT, totalMass, muCore, remainingLifetime,
-  step, addH, mineH, extractHe, mixStar, record, evolutionaryPhase,
+  earthDistance, earthYear, earthTemp, earthEngulfed, earthClimate,
+  hzInner, hzOuter, inHabitableZone,
+  step, addH, mineH, extractHe, extractHeAmount, coreHePool, mixStar, record, evolutionaryPhase,
 } from './physics.js';
 
 const STATE_FILE = resolve(import.meta.dir, '..', '.state.json');
@@ -48,6 +50,11 @@ function printStats(s: State): void {
   console.log(`  μ (core)     ${fmt(muCore(s))}`);
   console.log(`  core   X=${fmt(X_core(s))}  Y=${fmt(Y_core(s))}`);
   console.log(`  env    X=${fmt(X_env(s))}  Y=${fmt(Y_env(s))}`);
+  const earthT = earthEngulfed(s) ? 'engulfed' : `${Math.round(earthTemp(s))} K`;
+  console.log(`  earth        a=${fmt(earthDistance(s))} AU  yr=${fmt(earthYear(s))}  T=${earthT}  [${earthClimate(s)}]`);
+  const aOut = hzOuter(s);
+  const hzStr = `${fmt(hzInner(s))} – ${isFinite(aOut) ? fmt(aOut) : '∞'} AU`;
+  console.log(`  HZ           ${hzStr}  ${inHabitableZone(s) ? '[earth in zone]' : '[earth outside]'}`);
   console.log(`  remaining    ${rem}  (at current L)`);
   console.log(`  history pts  ${s.history.length}`);
 }
@@ -202,6 +209,86 @@ switch (cmd) {
   case 'plot':
     plot(s);
     break;
+
+  case 'stabilize': {
+    // Hold T_earth at present-day value by removing helium ash from the core.
+    // Invariant: L · M² = L₀ · M₀² (≈ 1 in solar units), since
+    // T_eq ∝ L^¼ · √M when orbital adiabatic invariant a·M = const holds.
+    // Each 0.1 Gyr, advance physics, then bisect for the ΔM_He that brings
+    // L·M² back to target.
+    const dtYears = 1e8;       // 0.1 Gyr increments
+    const tolerance = 1e-4;    // L·M² convergence
+    const maxAge = 30e9;
+    const target = luminosity(s) * Math.pow(totalMass(s), 2);
+
+    const cloneState = (st: State): State => ({ ...st, shells: st.shells.map(sh => ({ ...sh })) });
+
+    console.log(`stabilizing T_earth from age ${fmt(s.age / 1e9, 3)} Gyr`);
+    console.log(`target invariant L·M² = ${fmt(target, 5)}`);
+    console.log('');
+    console.log('age(Gyr)  ΔHe(M☉)   rate(M☉/Gyr)  M(M☉)   L(L☉)   T_eq(K) T_earth  L·M²');
+    console.log('────────  ────────  ────────────  ──────  ──────  ───────  ───────  ──────');
+
+    let stoppedReason = 'reached max age';
+    while (s.age < maxAge && s.alive) {
+      advance(s, dtYears);
+      if (!s.alive) { stoppedReason = 'star died'; break; }
+
+      const Lpre = luminosity(s);
+      const Mpre = totalMass(s);
+      const productPre = Lpre * Mpre * Mpre;
+
+      let dM = 0;
+      if (productPre > target) {
+        const pool = coreHePool(s);
+        if (pool < 1e-9) { stoppedReason = 'core He pool exhausted'; break; }
+        // Test maximum extraction first; if even that's insufficient, bail.
+        const probe = cloneState(s);
+        const removed = extractHeAmount(probe, pool * 0.999);
+        const productMin = luminosity(probe) * Math.pow(totalMass(probe), 2);
+        if (productMin > target + tolerance) {
+          stoppedReason = `extraction insufficient (min L·M² = ${fmt(productMin, 4)})`;
+          break;
+        }
+        // Bisect dM ∈ [0, removed] to hit target.
+        let lo = 0, hi = removed;
+        for (let it = 0; it < 50; it++) {
+          dM = 0.5 * (lo + hi);
+          const trial = cloneState(s);
+          extractHeAmount(trial, dM);
+          const product = luminosity(trial) * Math.pow(totalMass(trial), 2);
+          if (product > target) lo = dM; else hi = dM;
+          if (Math.abs(product - target) < tolerance) break;
+        }
+        extractHeAmount(s, dM);
+      }
+      record(s);
+
+      const M = totalMass(s);
+      const L = luminosity(s);
+      const Te = earthTemp(s);
+      const aAU = earthDistance(s);
+      const Teq = 254.6 * Math.pow(L, 0.25) / Math.sqrt(aAU);
+      const product = L * M * M;
+      const rate = dM / (dtYears / 1e9);
+
+      console.log(
+        `${fmt(s.age / 1e9, 3).padStart(8)}  ` +
+        `${fmt(dM, 6).padStart(8)}  ` +
+        `${fmt(rate, 6).padStart(12)}  ` +
+        `${fmt(M).padStart(6)}  ` +
+        `${fmt(L).padStart(6)}  ` +
+        `${fmt(Teq, 1).padStart(7)}  ` +
+        `${fmt(Te, 1).padStart(7)}  ` +
+        `${fmt(product, 4).padStart(6)}`
+      );
+    }
+    save(s);
+    console.log('');
+    console.log(`stopped: ${stoppedReason}`);
+    console.log(`final age ${fmt(s.age / 1e9, 3)} Gyr, mass ${fmt(totalMass(s))} M☉`);
+    break;
+  }
 
   default:
     console.error(`unknown command: ${cmd}`);

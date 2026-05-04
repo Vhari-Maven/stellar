@@ -32,6 +32,44 @@ const BETA_A  = 6.0;  const BETA_K  = 22;  const BETA_MAX  = 130;
 // Hayashi limit on convective envelope: real cool giants don't go below this.
 const T_HAYASHI = 3200;
 
+// Earth: Bond albedo and reference equilibrium temperature at 1 AU around a
+// 1 L☉ star with A = 0.3. Derived from T = ((1−A)·L☉ / (16π σ (1AU)²))^(1/4)
+// ≈ 254.6 K. Greenhouse effect not modelled (real surface is ~288 K).
+const EARTH_ALBEDO = 0.3;
+const T_EQ_REF = 254.6;
+// Grey-atmosphere greenhouse: T_surf = T_eq · (1 + 3τ/4)^(1/4). At present
+// (T_eq = 254.6 K) τ = 0.84 calibrates Earth to 288 K. Above the present-day
+// equilibrium temperature, water-vapor feedback ramps τ up quadratically —
+// this gives a moist-greenhouse onset around L ≈ 1.1 (~1 Gyr from now) and
+// runaway saturation by L ≈ 1.4, matching Kasting / Leconte estimates.
+// τ keyed on T_eq (no-greenhouse temp) keeps the function explicit instead
+// of needing a self-consistent solve.
+const EARTH_TAU_BASE = 0.84;
+const EARTH_TAU_MAX = 8.0;
+const TAU_T_THRESHOLD = 254.6;   // K — present-day T_eq, where feedback starts
+const TAU_SLOPE = 0.05;          // K⁻² coefficient on (T_eq − threshold)²
+
+function greenhouseFactor(T_eq: number): number {
+  const excess = Math.max(0, T_eq - TAU_T_THRESHOLD);
+  const tau = Math.min(EARTH_TAU_MAX, EARTH_TAU_BASE + TAU_SLOPE * excess * excess);
+  return Math.pow(1 + 0.75 * tau, 0.25);
+}
+
+// τ for a hypothetical Earth-twin colder than present: the carbonate-silicate
+// cycle slows weathering, mantle outgassing accumulates atmospheric CO₂, and
+// the column thickens until clouds cap the greenhouse. Used only for outer-
+// edge HZ — Earth itself doesn't get this treatment because its atmosphere is
+// what it is. Linear ramp in (T_thresh − T_eq), capped at TAU_MAX_OUTER ≈ 3.6
+// chosen so present-Sun outer edge lands near Kopparapu's 1.67 AU max-CO₂.
+const TAU_MAX_OUTER = 3.6;
+const TAU_OUTER_SLOPE = 0.048;  // K⁻¹
+
+function greenhouseFactorOuter(T_eq: number): number {
+  const deficit = Math.max(0, TAU_T_THRESHOLD - T_eq);
+  const tau = Math.min(TAU_MAX_OUTER, EARTH_TAU_BASE + TAU_OUTER_SLOPE * deficit);
+  return Math.pow(1 + 0.75 * tau, 0.25);
+}
+
 // "Core" = innermost CORE_BOUNDARY of mass, used only for the X_core / Y_core
 // diagnostics that the UI displays. Has no dynamical role.
 export const CORE_BOUNDARY = 0.20;
@@ -58,6 +96,10 @@ export interface State {
   alive: boolean;
   history: HistoryPoint[];
   lastRecord: number;
+  // Reference values captured at ZAMS so Earth's orbit can track mass loss
+  // adiabatically: a · M = const. Both in solar units (M☉, AU).
+  M0: number;
+  a0AU: number;
 }
 
 function freshShells(): Shell[] {
@@ -78,7 +120,103 @@ export function createState(): State {
     alive: true,
     history: [],
     lastRecord: 0,
+    M0: 1,
+    a0AU: 1,
   };
+}
+
+// ---- Earth (single test particle in Keplerian orbit) ----
+
+// Adiabatic orbit expansion under slow mass loss: a · M = const, so as the
+// Sun loses mass the orbit widens. Re-evaluated live from current totalMass.
+export function earthDistance(s: State): number {
+  const M = totalMass(s);
+  const M0 = s.M0 ?? 1;
+  const a0 = s.a0AU ?? 1;
+  if (M <= 0) return Infinity;
+  return a0 * M0 / M;
+}
+
+// Kepler's third law in solar units: T_yr = a^(3/2) / sqrt(M).
+export function earthYear(s: State): number {
+  const M = totalMass(s);
+  if (M <= 0) return Infinity;
+  return Math.pow(earthDistance(s), 1.5) / Math.sqrt(M);
+}
+
+// Equilibrium black-body temperature; ignores greenhouse, atmosphere,
+// rotation/distribution. T = T_ref · L^(1/4) / sqrt(a/AU) for fixed albedo.
+export function earthTemp(s: State): number {
+  const L = luminosity(s);
+  const a = earthDistance(s);
+  if (L <= 0 || !isFinite(a) || a <= 0) return 2.7; // CMB floor
+  const albedoFactor = Math.pow((1 - EARTH_ALBEDO) / (1 - 0.3), 0.25);
+  const T_eq = T_EQ_REF * Math.pow(L, 0.25) / Math.sqrt(a) * albedoFactor;
+  return T_eq * greenhouseFactor(T_eq);
+}
+
+// Convenience: is Earth inside the Sun's photosphere? R_sun in AU = R / 215.
+export function earthEngulfed(s: State): boolean {
+  return radius(s) / 215 >= earthDistance(s);
+}
+
+// Habitable zone: orbital distance range (in AU) where an Earth-twin's surface
+// would lie between freezing (273 K) and boiling (373 K). Inner edge requires
+// inverting the τ-feedback greenhouse, so we bisect; outer edge is closed-form
+// because below the τ-ramp threshold the greenhouse factor is constant.
+function tempAtDistance(L: number, aAU: number, useOuterGreenhouse = false): number {
+  if (L <= 0 || aAU <= 0) return 2.7;
+  const T_eq = T_EQ_REF * Math.pow(L, 0.25) / Math.sqrt(aAU);
+  const g = useOuterGreenhouse ? greenhouseFactorOuter(T_eq) : greenhouseFactor(T_eq);
+  return T_eq * g;
+}
+
+export function hzInner(s: State): number {
+  const L = luminosity(s);
+  if (L <= 0) return 0;
+  // T_surf monotonically decreasing in a, so bisect a where T = 373.
+  let lo = 0.01, hi = 100;
+  for (let i = 0; i < 60; i++) {
+    const mid = 0.5 * (lo + hi);
+    const T = tempAtDistance(L, mid);
+    if (T > 373) lo = mid; else hi = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+export function hzOuter(s: State): number {
+  const L = luminosity(s);
+  if (L <= 0) return Infinity;
+  // Use the cold-side greenhouse: cooler distances accumulate more CO₂ via
+  // the carbonate-silicate cycle, capped at the maximum-greenhouse limit.
+  // T_surf monotonically decreasing in a, so bisect.
+  let lo = 0.01, hi = 1000;
+  for (let i = 0; i < 60; i++) {
+    const mid = 0.5 * (lo + hi);
+    const T = tempAtDistance(L, mid, true);
+    if (T > 273) lo = mid; else hi = mid;
+  }
+  return 0.5 * (lo + hi);
+}
+
+export function inHabitableZone(s: State): boolean {
+  const a = earthDistance(s);
+  return a >= hzInner(s) && a <= hzOuter(s);
+}
+
+// Climate band from equilibrium T. Thresholds chosen against water phase
+// transitions on Earth-like atmosphere; note that with no greenhouse the
+// present-day Sun puts Earth at 255 K → "frozen", which is the honest reading
+// of the bare equilibrium model.
+export type EarthClimate = 'engulfed' | 'boiling' | 'hot' | 'temperate' | 'cold' | 'frozen';
+export function earthClimate(s: State): EarthClimate {
+  if (earthEngulfed(s)) return 'engulfed';
+  const T = earthTemp(s);
+  if (T >= 373) return 'boiling';
+  if (T >= 303) return 'hot';
+  if (T >= 283) return 'temperate';
+  if (T >= 273) return 'cold';
+  return 'frozen';
 }
 
 // ---- per-shell helpers ----
@@ -320,6 +458,30 @@ export function mineH(s: State, deltaM: number): void {
       sh.M_He -= takeHe; remaining -= takeHe;
     }
   }
+}
+
+// Continuous-rate variant of extractHe: removes up to dM of He from the inner
+// core shells, working from shell 0 outward. Returns the amount actually
+// removed (capped by total He available in the inner N_CORE shells).
+export function extractHeAmount(s: State, dM: number): number {
+  if (dM <= 0) return 0;
+  let remaining = dM;
+  let removed = 0;
+  for (let i = 0; i < N_CORE && remaining > 0; i++) {
+    const take = Math.min(remaining, s.shells[i].M_He);
+    s.shells[i].M_He -= take;
+    remaining -= take;
+    removed += take;
+  }
+  if (shellX(s.shells[0]) > X_BURN_THRESHOLD) s.alive = true;
+  return removed;
+}
+
+// Total He mass in the inner N_CORE shells — the pool extractHeAmount can draw from.
+export function coreHePool(s: State): number {
+  let H = 0;
+  for (let i = 0; i < N_CORE; i++) H += s.shells[i].M_He;
+  return H;
 }
 
 export function extractHe(s: State): void {

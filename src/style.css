@@ -189,6 +189,24 @@ header {
 }
 .legend-dot.core { background: linear-gradient(45deg, #ffeecc, #ff7733); }
 .legend-dot.he { background: linear-gradient(45deg, #2c2a26, #56504a); }
+.legend-dot.earth { background: var(--cool-blue); }
+.legend-dot.hz { background: rgba(102,221,153,0.5); }
+
+.climate-tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.climate-tag.frozen    { color: #aaccff; background: rgba(170,204,255,0.06); }
+.climate-tag.cold      { color: #88aaff; background: rgba(136,170,255,0.08); }
+.climate-tag.temperate { color: var(--good); background: rgba(102,221,153,0.08); }
+.climate-tag.hot       { color: var(--amber); background: rgba(255,170,51,0.10); }
+.climate-tag.boiling   { color: var(--plasma); background: rgba(255,119,51,0.12); }
+.climate-tag.engulfed  { color: var(--danger); background: rgba(255,85,102,0.10); }
 
 .stats {
   display: flex;

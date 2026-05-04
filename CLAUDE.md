@@ -37,7 +37,11 @@ stellar_sandbox.html.bak  original single-file prototype, kept for reference
 
 ## Physics model (current)
 
-40-shell Lagrangian, post-MS phenomenology layered on top.
+40-shell Lagrangian stellar interior, post-MS phenomenology layered on top,
+plus a phase-2 Earth/climate module (orbit, equilibrium temperature with
+greenhouse + water-vapor feedback, habitable zone) and a stabilization
+control loop that holds Earth's climate constant via continuous-rate He
+extraction.
 
 ### Main sequence physics
 
@@ -78,6 +82,9 @@ clamps `T_eff ≥ 3200 K`.
 - `addH(s, ΔM)` distributes hydrogen evenly over the outer half of shells.
 - `mineH(s, ΔM)` peels mass off outermost-shell-first, H first then He.
 - `extractHe(s)` zeroes He in inner `N_CORE` shells; mass leaves the system.
+- `extractHeAmount(s, ΔM)` continuous-rate variant: removes up to ΔM of He
+  from inner shells, working outward from shell 0. Returns amount actually
+  removed (capped by `coreHePool(s)`). Used by `stabilize` CLI command.
 - `mixStar(s)` redistributes composition to global average; shell masses
   unchanged.
 
@@ -86,12 +93,79 @@ Because `inertCoreFraction` is recomputed live, interventions feed straight
 into α and β — `extract-he` on an RGB star drops `f` to ~0 and the model
 reverts to MS instantly. This is the desired property.
 
+## Earth / climate model (phase 2)
+
+Single test particle around the Sun, no back-reaction on the star.
+
+### Orbit
+
+- `State` carries `M0` and `a0AU` reference values (1 M☉, 1 AU at ZAMS).
+- `earthDistance(s) = a0 · M0 / M`. Adiabatic invariant for slow mass loss
+  (`a · M = const`). Sudden mass loss isn't this, but our sim's mass changes
+  are slow enough.
+- `earthYear(s) = a^(3/2) / √M` from Kepler in solar units. Year length
+  scales as `1/M²` since `a ∝ 1/M`.
+- Earth's spin not modelled — solar tides on Earth are negligible vs lunar.
+
+### Equilibrium temperature
+
+`T_surf = T_eq · greenhouseFactor(T_eq)` where
+`T_eq = T_REF · L^¼ / √a · albedoFactor`, with `T_REF = 254.6 K` (the bare
+no-greenhouse equilibrium for L=1, a=1, A=0.3 — the textbook number).
+
+Greenhouse uses the grey-atmosphere relation `(1 + 3τ/4)^¼` with two regimes:
+
+- **Earth's actual atmosphere** (`greenhouseFactor`): τ = 0.84 base,
+  ramps quadratically above present-day T_eq via water-vapor feedback.
+  Calibrated so present-day Earth (L=1, a=1) reads exactly 288 K. ZAMS reads
+  263 K — the Faint Young Sun paradox shows up honestly; resolution is
+  early-Earth CO₂ which we don't model.
+- **Hypothetical Earth-twin colder than present** (`greenhouseFactorOuter`):
+  τ ramps *upward* below present-day T_eq, capped at `TAU_MAX_OUTER ≈ 3.6`,
+  representing carbonate-silicate cycle accumulating CO₂ until clouds limit
+  the greenhouse. Used **only** for `hzOuter` — Earth itself doesn't get
+  this treatment because its atmosphere is what it is.
+
+`earthClimate(s)` returns `frozen | cold | temperate | hot | boiling | engulfed`
+on water-phase thresholds; UI renders a coloured chip.
+
+### Habitable zone
+
+`hzInner(s)` and `hzOuter(s)` find the orbital radii where `T_surf = 373 K`
+and `T_surf = 273 K` respectively, by bisection in `tempAtDistance(L, a, useOuter)`.
+Inner uses Earth's water-feedback greenhouse, outer uses the cold-side
+CO₂-thickening greenhouse. At present Sun: 0.94 – 1.67 AU, matching
+Kopparapu (2013) runaway-greenhouse and max-greenhouse limits.
+
+### Stabilization control loop
+
+`bun run cli stabilize` holds T_earth at the current value by extracting
+He each step. Invariant is the closed form
+`L · M² = L₀ M₀²` (because `T_eq ∝ L^¼ · √M` once `a · M = const`).
+
+Per 0.1 Gyr step: advance physics, measure `L · M²`, bisect for the ΔM_He
+that brings the product back to target, apply, repeat. Stops when:
+- `coreHePool(s)` is exhausted, or
+- Even maximum extraction can't reduce `L · M²` to target (depletion has
+  migrated outside extractable inner shells), or
+- The post-MS phenomenology fires hard enough that bisection thrashes.
+
+For 1 M☉ initial conditions starting from age 4.57 Gyr, holds for ~9 Gyr
+before failing — extracts ~0.025 M☉ of helium total, requires 0.001-0.006
+M☉/Gyr extraction rate (rate jumps ~6× when post-MS multipliers kick in
+around stellar age 10 Gyr).
+
 ### Public API (what UI/CLI consume)
 
 ```ts
+// Stellar
 createState, totalMass, X_core, Y_core, Z_core, X_env, Y_env, muCore,
 luminosity, radius, surfaceT, remainingLifetime, inertCoreFraction,
-evolutionaryPhase, step, addH, mineH, extractHe, mixStar, reset, record
+evolutionaryPhase, step, addH, mineH, extractHe, extractHeAmount,
+coreHePool, mixStar, reset, record,
+// Earth / climate
+earthDistance, earthYear, earthTemp, earthEngulfed, earthClimate,
+hzInner, hzOuter, inHabitableZone
 ```
 
 UI/CLI never touch shell internals directly.
@@ -143,15 +217,60 @@ committing.
 ```sh
 npm run typecheck       # TS strict mode, must be clean
 npm run build           # also typechecks via tsc as a build prerequisite
-bun run cli init && bun run cli step 4.57G   # smoke test
+bun run cli init && bun run cli step 4.57G   # smoke test (T_earth = 288 K)
+bun run cli stabilize   # exercises the full Earth + control loop path
 ```
+
+Sanity numbers worth knowing:
+- present Sun: L = 1.000, T_earth = 288 K [temperate], HZ 0.94 – 1.67 AU
+- ZAMS: L = 0.701, T_earth = 263 K [frozen] (Faint Young Sun)
+- `stabilize` from age 4.57 Gyr survives ~9 Gyr extension before failing
 
 ## What's NOT modelled
 
-CNO cycle, opacity, real EOS, gravitational settling, convective mixing
-(beyond the `mix` intervention), shell-burning thermal pulses, He flash,
+**Stellar:** CNO cycle, opacity, real EOS, gravitational settling, convective
+mixing (beyond the `mix` intervention), shell-burning thermal pulses, He flash,
 mass loss winds, structural relaxation after mass-change interventions,
-rotation, magnetic fields. Don't claim self-consistency that isn't there.
+rotation, magnetic fields.
+
+**Earth-side:** atmosphere loss to solar wind, ice-albedo feedback (albedo
+fixed at 0.3), tidal coupling between Earth and Sun (irrelevant outside late
+RGB anyway), CO₂ depletion via the carbonate-silicate cycle, geodynamo decay
+as Earth's core solidifies, ocean evaporation kinetics. The greenhouse
+feedback is τ-based, not a real radiative-transfer calc — moist greenhouse
+threshold is approximate.
+
+**Sun's RGB-tip behaviour caveats:** peak L in the model is ~5 L☉ (much
+lower than literature ~2300 L☉) because `ALPHA_MAX = 8` saturates early.
+RGB photosphere caps at `BETA_MAX = 130` so peak R ≈ 130 R☉ ≈ 0.6 AU —
+Earth never gets engulfed. Both could be retuned but CLAUDE.md notes the
+calibration loop is sensitive (see Tuning warnings).
+
+Don't claim self-consistency that isn't there.
+
+## Future directions
+
+### Phase 3 (proposed, not started): orbital migration
+
+Add an `extractMass(s, ΔM)` or `migrateEarth(s, Δa)` intervention that
+nudges `a0AU` upward independently of solar mass loss, representing
+engineered migration via repeated asteroid gravitational assists
+(Korycansky et al. 2001). Would let users compare "stabilize Sun + move
+Earth outward" vs. "stabilize Sun alone" for total habitability time. Easy
+to add — `a0AU` is already a State field, just needs a setter and UI/CLI
+wiring.
+
+### Other ideas considered, not pursued
+
+- **Atmosphere module** for Earth (albedo, pressure, composition) — would let
+  us model magnetosphere loss, atmospheric stripping, ice-albedo bistability.
+  Big scope jump.
+- **Retune post-MS phenomenology** to hit literature L_peak ≈ 2300 L☉ and
+  enable RGB-tip engulfment. Needs raising `ALPHA_MAX`/`BETA_MAX` and
+  re-running the K_LUM calibration. CLAUDE.md flags this as risky.
+- **L1 magnetic shield** intervention or **biosphere/CO₂ depletion** model —
+  both interesting but require modelling Earth's atmosphere or biosphere,
+  which we currently abstract entirely.
 
 ## Original prompt history (one-liner)
 
@@ -159,6 +278,7 @@ User wanted to study how composition interventions affect L and lifetime. We
 chose pure-frontend (no Python backend) because the math is light. Started
 from a 2-zone homology model (overshot present-day L by 4×), moved to 40-shell
 Lagrangian (calibration spot-on), then added phenomenological post-MS
-phenomenology to capture the subgiant + RGB phases. Future direction
-mentioned: planet temperatures from L and orbital distance — phase 2,
-not yet implemented.
+phenomenology to capture the subgiant + RGB phases. Phase 2 (Earth orbit,
+equilibrium temperature, water-vapor greenhouse, habitable zone, He-extraction
+stabilization control loop) added 2026-05-04. Phase 3 future direction:
+orbital migration as an additional intervention.

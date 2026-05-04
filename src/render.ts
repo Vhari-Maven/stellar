@@ -8,7 +8,21 @@ import {
   luminosity,
   radius,
   surfaceT,
+  earthDistance,
+  earthEngulfed,
+  hzInner,
+  hzOuter,
+  totalMass,
 } from './physics.js';
+
+// Visual orbit radius for Earth at a = 1 AU. Star peaks at ~85 in the same
+// units, so 92 keeps a clear gap at ZAMS while letting the swelling RGB
+// star visibly engulf Earth at the tip.
+const EARTH_ORBIT_VIS_AU = 92;
+// Visual rotation rate (rad/s) — decoupled from physical year so the orbit
+// is visible regardless of the simulation time-rate. Modulated by year length
+// so a longer real year still rotates noticeably slower.
+const EARTH_VIS_OMEGA = 0.6;
 
 type RGB = [number, number, number];
 
@@ -97,7 +111,46 @@ export function updateStarSVG(s: State): void {
   $('surface').setAttribute('r', String(Rdisplay));
   $('core').setAttribute('r', String(coreR));
   $('he-ash').setAttribute('r', String(heAshR));
+
+  // Earth: orbit ring scales linearly with a (mass-loss expands the orbit);
+  // angle uses real-time so the planet's motion is always visible.
+  const aAU = earthDistance(s);
+  const orbitR = EARTH_ORBIT_VIS_AU * aAU;
+  // Slow visual orbit when the physical year is long: ω ∝ 1/T_yr^(1/3) gives
+  // a perceptible-but-honest slowdown without going imperceptibly slow.
+  const yearLen = Math.pow(aAU, 1.5) / Math.sqrt(Math.max(0.01, totalMass(s)));
+  const omega = EARTH_VIS_OMEGA / Math.cbrt(Math.max(0.1, yearLen));
+  const theta = (performance.now() / 1000) * omega;
+  const ex = orbitR * Math.cos(theta);
+  const ey = orbitR * Math.sin(theta);
+
+  const aIn = hzInner(s);
+  const aOut = hzOuter(s);
+  const inR = EARTH_ORBIT_VIS_AU * aIn;
+  const outR = EARTH_ORBIT_VIS_AU * aOut;
+  // Band stroke spans inner→outer; centre it between them and set width to span.
+  const bandR = 0.5 * (inR + outR);
+  const bandW = Math.max(0.5, outR - inR);
+  const hzBand = $('hz-band');
+  hzBand.setAttribute('r', String(bandR));
+  hzBand.setAttribute('stroke-width', String(bandW));
+  $('hz-inner').setAttribute('r', String(inR));
+  $('hz-outer').setAttribute('r', String(outR));
+
+  const orbitEl = $('earth-orbit');
+  const earthEl = $('earth');
+  orbitEl.setAttribute('r', String(orbitR));
+  if (earthEngulfed(s)) {
+    earthEl.setAttribute('opacity', '0');
+    orbitEl.setAttribute('opacity', '0.3');
+  } else {
+    earthEl.setAttribute('opacity', '1');
+    orbitEl.setAttribute('opacity', '1');
+    earthEl.setAttribute('cx', String(ex));
+    earthEl.setAttribute('cy', String(ey));
+  }
 }
+
 
 // ---- plot ----
 

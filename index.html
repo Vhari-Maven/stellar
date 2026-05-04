@@ -55,12 +55,26 @@
             <circle id="surface" cx="0" cy="0" r="60" fill="url(#surfaceGrad)" />
             <circle id="core" cx="0" cy="0" r="22" fill="url(#coreGrad)" />
             <circle id="he-ash" cx="0" cy="0" r="0" fill="url(#heAshGrad)" />
+            <circle id="hz-band" cx="0" cy="0" r="92" fill="none"
+                    stroke="rgba(102,221,153,0.18)" stroke-width="14" />
+            <circle id="hz-inner" cx="0" cy="0" r="78" fill="none"
+                    stroke="rgba(255,170,51,0.45)" stroke-width="0.5"
+                    stroke-dasharray="1 2" />
+            <circle id="hz-outer" cx="0" cy="0" r="104" fill="none"
+                    stroke="rgba(136,170,255,0.45)" stroke-width="0.5"
+                    stroke-dasharray="1 2" />
+            <circle id="earth-orbit" cx="0" cy="0" r="92" fill="none"
+                    stroke="rgba(136,170,255,0.25)" stroke-width="0.4"
+                    stroke-dasharray="2 2" />
+            <circle id="earth" cx="92" cy="0" r="2.4" fill="#88aaff" />
           </svg>
         </div>
         <div class="legend">
           <div class="legend-item"><span class="legend-dot core"></span> Burning core</div>
           <div class="legend-item"><span class="legend-dot"></span> Envelope</div>
           <div class="legend-item"><span class="legend-dot he"></span> Helium ash</div>
+          <div class="legend-item"><span class="legend-dot earth"></span> Earth</div>
+          <div class="legend-item"><span class="legend-dot hz"></span> Habitable zone</div>
         </div>
       </div>
 
@@ -109,6 +123,30 @@
           </div>
           <div class="comp-bar" id="comp-bar-env"></div>
           <div class="comp-labels"><span>Hydrogen ←</span><span>→ Helium</span></div>
+        </div>
+
+        <div class="stat-section">
+          <div class="stat-section-title">Earth</div>
+          <div class="stat-row">
+            <span class="stat-label">Orbital distance</span>
+            <span class="stat-value" id="stat-earth-a">1.000 <span class="unit">AU</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Year length</span>
+            <span class="stat-value" id="stat-earth-yr">1.000 <span class="unit">yr</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Surface T<sub>eq</sub></span>
+            <span class="stat-value" id="stat-earth-t">255 <span class="unit">K</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Climate</span>
+            <span class="climate-tag frozen" id="stat-earth-climate">frozen</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Habitable zone</span>
+            <span class="stat-value" id="stat-hz">0.85 – 1.11 <span class="unit">AU</span></span>
+          </div>
         </div>
 
         <div class="stat-section">
