@@ -60,11 +60,15 @@ extraction.
 ### Post-MS phenomenology
 
 Triggered by `inertCoreFraction(s)` exceeding `F_SC = 0.05`. The fraction is a
-squared-depletion-weighted sum over contiguous inner shells:
-`f = Σ (X0 − X_i)² · m_i / (X0² · M)`. Squaring suppresses the mild
+squared-depletion-weighted sum over contiguous inner shells, normalized by
+**initial** mass M0:
+`f = Σ (X0 − X_i)² · m_i / (X0² · M0)`. Squaring suppresses the mild
 depletion of outer shells (so we measure deeply-burned-through inner mass,
 not "anywhere helium has accumulated"). At ZAMS, f = 0; for a 1 M☉ Sun this
-reaches 0.05 around real turnoff (~9-10 Gyr).
+reaches 0.05 around real turnoff (~9-10 Gyr). M0 (not current M) in the
+denominator: stripping envelope mass (mineH) shouldn't artificially trigger
+post-MS evolution — the depletion fraction is a property of the core's
+absolute state, independent of whether the envelope is intact.
 
 Two multipliers, both exponential in `dx = max(0, f − F_SC)`, both capped:
 
@@ -240,13 +244,13 @@ as Earth's core solidifies, ocean evaporation kinetics. The greenhouse
 feedback is τ-based, not a real radiative-transfer calc — moist greenhouse
 threshold is approximate.
 
-**Sun's RGB-tip behaviour caveats:** peak L in the model is ~5 L☉ (much
-lower than literature ~2300 L☉) because `ALPHA_MAX = 8` saturates early.
-RGB photosphere caps at `BETA_MAX = 130` so peak R ≈ 130 R☉ ≈ 0.6 AU —
-Earth never gets engulfed. Both could be retuned but CLAUDE.md notes the
-calibration loop is sensitive (see Tuning warnings).
-
 Don't claim self-consistency that isn't there.
+
+Other known limitations that surface only when interventions push the model
+far from natural evolution (heavily mass-stripped stars, RGB-tip behaviour,
+etc.) are documented in [docs/known-limitations.md](docs/known-limitations.md).
+Read that file before designing experiments that mine large mass fractions,
+study engulfment, or otherwise stress the model outside its calibrated regime.
 
 ## Future directions
 

@@ -274,16 +274,22 @@ function muCentral(s: State): number {
 // "deeply burned-through inner region" rather than "anywhere helium has
 // accumulated"). Squaring also responds non-linearly so the SC trigger fires
 // crisply once central depletion is severe.
+//
+// Denominator is M0 (initial mass), not current total M. Otherwise envelope
+// stripping (mineH) shrinks the denominator without changing the numerator —
+// the loop breaks at the first un-depleted shell, so outer shells never
+// contribute either way — and that would spuriously inflate f, prematurely
+// firing the post-MS trigger. Using M0 keeps the trigger tied to the absolute
+// state of the depleted inner core.
 export function inertCoreFraction(s: State): number {
-  const M = totalMass(s);
-  if (M <= 0) return 0;
+  if (s.M0 <= 0) return 0;
   let f = 0;
   for (const sh of s.shells) {
     const depl = (X0 - shellX(sh)) / X0;
     if (depl <= 0) break;
     f += depl * depl * shellMass(sh);
   }
-  return f / M;
+  return f / s.M0;
 }
 
 // Post-MS multipliers. Both kick in only past the SC threshold so the main
